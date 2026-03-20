@@ -7,15 +7,30 @@ import (
 	"os"
 
 	"github.com/Terminus-Lab/stamper/internal/domain"
+	"github.com/rs/zerolog"
 )
 
-func Load(path string) ([]domain.Conversation, error) {
+type Reader struct {
+	Logger *zerolog.Logger
+}
+
+func NewReader(logger *zerolog.Logger) *Reader {
+	return &Reader{
+		Logger: logger,
+	}
+}
+
+func (r *Reader) Load(path string) ([]domain.Conversation, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			r.Logger.Error().Err(err).Msg("Unable to close the file")
+		}
+	}()
 
 	var conversations []domain.Conversation
 	scanner := bufio.NewScanner(f)
