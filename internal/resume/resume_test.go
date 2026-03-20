@@ -1,4 +1,4 @@
-package reader
+package resume
 
 import (
 	"os"
@@ -30,8 +30,8 @@ func TestResumeLoad(t *testing.T) {
 	}
 
 	assert.Len(t, d, 2)
-	assert.Equal(t, d["c1"], true)
-	assert.Equal(t, d["c2"], true)
+	assert.Equal(t, true, d["c1"])
+	assert.Equal(t, true, d["c2"])
 
 }
 
@@ -51,7 +51,7 @@ func TestResumeLoad_InvalidJson(t *testing.T) {
 	_, err = resume.Load(f.Name())
 
 	if err == nil {
-		t.Fatal("Expected error for invalid json.")
+		t.Fatal("expected error for invalid json.")
 	}
 }
 

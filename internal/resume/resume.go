@@ -1,4 +1,4 @@
-package reader
+package resume
 
 import (
 	"bufio"
@@ -38,7 +38,7 @@ func (r *Resume) Load(path string) (map[string]bool, error) {
 			ConversationID string `json:"conversation_id"`
 		}
 		if err := json.Unmarshal(scanner.Bytes(), &c); err != nil {
-			return nil, fmt.Errorf("Invalid line in output file: %w", err)
+			return nil, fmt.Errorf("invalid line in output file: %w", err)
 		}
 		annotated[c.ConversationID] = true
 	}
