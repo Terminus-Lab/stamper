@@ -8,7 +8,6 @@ type Turn struct {
 type Conversation struct {
 	ConversationID string         `json:"conversation_id"`
 	Turns          []Turn         `json:"turns"`
-	Annotation     string         `json:"human_annotation"`
+	Annotation     string         `json:"human_annotation,omitempty"`
 	Extra          map[string]any `json:"-"` //TODO: handle passthrough latter
 }
-
