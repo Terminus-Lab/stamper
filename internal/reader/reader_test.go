@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLoad(t *testing.T) {
+func TestReaderLoad(t *testing.T) {
 	f, err := os.CreateTemp("", "samper-*.jsonl")
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +35,7 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, "Hi", convs[0].Turns[0].Query)
 }
 
-func TestLoad_InvalidJson(t *testing.T) {
+func TestReaderLoad_InvalidJson(t *testing.T) {
 	f, _ := os.CreateTemp("", "stamper-*.json")
 	defer os.Remove(f.Name())
 
@@ -51,7 +51,7 @@ func TestLoad_InvalidJson(t *testing.T) {
 	}
 }
 
-func TestLoad_FileNotFound(t *testing.T) {
+func TestReaderLoad_FileNotFound(t *testing.T) {
 	logger := zerolog.Nop()
 	reader := NewReader(&logger)
 
