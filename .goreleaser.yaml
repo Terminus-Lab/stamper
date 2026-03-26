@@ -1,0 +1,166 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  # API Server
+  - id: themis-api
+    binary: themis-api
+    main: ./cmd/api
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+  # CLI
+  - id: themis-cli
+    binary: themis-cli
+    main: ./cmd/batch
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+  # MCP Server
+  - id: themis-mcp
+    binary: themis-mcp
+    main: ./cmd/mcp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - .env.example
+      - src: "configs/**"
+      - src: "static/**"
+      - src: "docs/**"
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+  groups:
+    - title: Features
+      regexp: '^feat:'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^fix:'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: Terminus-Lab
+    name: themis
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"
+  footer: |
+    ## Installation
+
+    ### Download Binary Release
+
+    **Choose your platform:**
+    - **macOS (Apple Silicon)**: `themis_{{.Version}}_darwin_arm64.tar.gz` - M1/M2/M3 Macs
+    - **macOS (Intel)**: `themis_{{.Version}}_darwin_amd64.tar.gz`
+    - **Linux (x64)**: `themis_{{.Version}}_linux_amd64.tar.gz`
+    - **Linux (ARM)**: `themis_{{.Version}}_linux_arm64.tar.gz`
+    - **Windows (x64)**: `themis_{{.Version}}_windows_amd64.zip`
+    - **Windows (ARM)**: `themis_{{.Version}}_windows_arm64.zip`
+
+    **Extract and run:**
+    ```bash
+    # macOS/Linux
+    tar -xzf themis_{{.Version}}_darwin_arm64.tar.gz
+    cd themis_{{.Version}}_darwin_arm64
+
+    # Configure LLM credentials
+    cp .env.example .env
+    # Edit .env with your OPEN_AI_KEY or AWS credentials
+
+    # Run from extracted directory
+    ./themis-api
+    ```
+
+    **⚠️ Important:** Always run binaries from the extracted directory where `configs/judges.yaml` is located.
+
+    ### What's Included
+    - **themis-api** - HTTP API server with web dashboard
+    - **themis-mcp** - MCP server for Claude Code/Desktop integration
+    - **themis-cli** - CLI for batch evaluation and validation with Kendall's τ
+    - **configs/** - Judge configurations (judges.yaml)
+    - **docs/** - Complete documentation
+    - **static/** - Web dashboard assets
+    - **.env.example** - Environment template
+
+    ### Go Install (Alternative)
+    ```bash
+    go install github.com/Terminus-Lab/themis/cmd/api@{{.Tag}}
+    go install github.com/Terminus-Lab/themis/cmd/batch@{{.Tag}}
+    go install github.com/Terminus-Lab/themis/cmd/mcp@{{.Tag}}
+    ```
+
+    Note: You'll need to provide `configs/judges.yaml` separately or set `JUDGES_CONFIG_PATH` env var.
+
+    ## Documentation
+    See [README.md](https://github.com/Terminus-Lab/themis/blob/main/README.md) for complete usage instructions.
