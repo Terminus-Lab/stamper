@@ -41,6 +41,7 @@ archives:
       - README.md
       - CHANGELOG.md
       - .env.example
+      - src: "conf/**"
 
 checksum:
   name_template: 'checksums.txt'

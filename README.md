@@ -28,6 +28,11 @@ Each annotation is written as the original JSON line with a `human_annotation` f
 go build -o .bin/stamper ./cmd/
 ```
 
+> **macOS note:** downloaded binaries may be blocked by Gatekeeper ("not from a trusted developer"). Run once to remove the quarantine flag:
+> ```bash
+> xattr -d com.apple.quarantine .bin/stamper
+> ```
+
 ---
 
 ## Run
@@ -49,6 +54,7 @@ go run ./cmd/ -i sampled.jsonl
 |---|---|---|
 | `-i / --input` | required | JSONL file of conversations to annotate |
 | `-o / --output` | `{input}_annotated.jsonl` | Annotation output file |
+| `-p / --prompt` | built-in `conf/summarize_prompt.tmpl` | Custom prompt template for `[s] summarize` |
 
 ---
 

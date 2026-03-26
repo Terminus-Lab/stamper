@@ -13,6 +13,7 @@ type StamperConfig struct {
 	ModelId             string
 	ModelConfig         ModelConfig
 	SummarizeEnabled    bool
+	PromptFile          string
 }
 
 type ModelConfig struct {

@@ -1,9 +1,12 @@
 package executor
 
 import (
+	"bytes"
 	"context"
+	"embed"
 	"fmt"
-	"strings"
+	"os"
+	"text/template"
 
 	"github.com/Terminus-Lab/stamper/internal/config"
 	"github.com/Terminus-Lab/stamper/internal/domain"
@@ -11,22 +14,34 @@ import (
 	"github.com/rs/zerolog"
 )
 
+//go:embed default_prompt.tmpl
+var defaultPromptFS embed.FS
+
 type Executor struct {
 	llmClient llm.LLMClient
 	cfg       *config.StamperConfig
 	logger    *zerolog.Logger
+	tmpl      *template.Template
 }
 
-func New(llmClient llm.LLMClient, cfg *config.StamperConfig, logger *zerolog.Logger) *Executor {
+func New(llmClient llm.LLMClient, cfg *config.StamperConfig, logger *zerolog.Logger) (*Executor, error) {
+	tmpl, err := loadTemplate(cfg.PromptFile)
+	if err != nil {
+		return nil, err
+	}
 	return &Executor{
 		llmClient: llmClient,
 		cfg:       cfg,
 		logger:    logger,
-	}
+		tmpl:      tmpl,
+	}, nil
 }
 
 func (e *Executor) Run(ctx context.Context, conv domain.Conversation) (string, error) {
-	prompt := buildPrompt(conv)
+	prompt, err := renderPrompt(e.tmpl, conv)
+	if err != nil {
+		return "", fmt.Errorf("render prompt: %w", err)
+	}
 
 	resp, err := e.llmClient.InvokeModel(ctx, llm.LLMRequest{
 		Prompt:      prompt,
@@ -41,18 +56,30 @@ func (e *Executor) Run(ctx context.Context, conv domain.Conversation) (string, e
 	return resp.Content, nil
 }
 
-func buildPrompt(conv domain.Conversation) string {
-	var sb strings.Builder
-	sb.WriteString("You are helping a human annotator evaluate an AI conversation.\n")
-	sb.WriteString("Summarize this conversation in 2-3 sentences.\n")
-	sb.WriteString("Focus on: what the user asked, whether the agent's responses were accurate and helpful, and any notable issues.\n\n")
-
-	for i, turn := range conv.Turns {
-		fmt.Fprintf(&sb, "Turn %d\n", i+1)
-		fmt.Fprintf(&sb, "User: %s\n", turn.Query)
-		fmt.Fprintf(&sb, "Agent: %s\n\n", turn.Answer)
+func loadTemplate(path string) (*template.Template, error) {
+	funcMap := template.FuncMap{
+		"inc": func(i int) int { return i + 1 },
 	}
 
-	sb.WriteString("Provide only the summary, no preamble.")
-	return sb.String()
+	if path != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read prompt file %q: %w", path, err)
+		}
+		return template.New("prompt").Funcs(funcMap).Parse(string(raw))
+	}
+
+	raw, err := defaultPromptFS.ReadFile("default_prompt.tmpl")
+	if err != nil {
+		return nil, fmt.Errorf("read embedded prompt: %w", err)
+	}
+	return template.New("prompt").Funcs(funcMap).Parse(string(raw))
+}
+
+func renderPrompt(tmpl *template.Template, conv domain.Conversation) (string, error) {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, conv); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

@@ -29,6 +29,7 @@ func main() {
 
 	var inputFile string
 	var outputFile string
+	var promptFile string
 
 	root := &cobra.Command{
 		Use:          "stamper",
@@ -47,12 +48,13 @@ func main() {
 				Str("output", outputFile).
 				Msg("starting annotation")
 
-			return runAnnotate(inputFile, outputFile, &log)
+			return runAnnotate(inputFile, outputFile, promptFile, &log)
 		},
 	}
 
 	root.Flags().StringVarP(&inputFile, "input", "i", "", "JSONL file to annotate (required)")
 	root.Flags().StringVarP(&outputFile, "output", "o", "", "Output file (default: {input}_annotated.jsonl)")
+	root.Flags().StringVarP(&promptFile, "prompt", "p", "", "Custom summarize prompt template (default: built-in conf/summarize_prompt.tmpl)")
 
 	if err := root.Execute(); err != nil {
 		log.Fatal().Msg("failed to run stamper")
@@ -69,11 +71,12 @@ func tuiEnabled() bool {
 	return true
 }
 
-func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err error) {
+func runAnnotate(inputFile, outputFile, promptFile string, logger *zerolog.Logger) (err error) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	cfg := config.LoadConfig()
+	cfg.PromptFile = promptFile
 
 	var exec *executor.Executor
 	if cfg.SummarizeEnabled {
@@ -81,7 +84,10 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 		if err != nil {
 			return err
 		}
-		exec = executor.New(llmClient, cfg, logger)
+		exec, err = executor.New(llmClient, cfg, logger)
+		if err != nil {
+			return err
+		}
 	}
 
 	res := resume.NewResume(logger)

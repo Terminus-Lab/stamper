@@ -1,38 +1,47 @@
 package executor
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Terminus-Lab/stamper/internal/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestBuildPrompt_ContainsInstructions(t *testing.T) {
+func render(t *testing.T, conv domain.Conversation) string {
+	t.Helper()
+	tmpl, err := loadTemplate("")
+	require.NoError(t, err)
+	result, err := renderPrompt(tmpl, conv)
+	require.NoError(t, err)
+	return result
+}
+
+func TestPrompt_ContainsInstructions(t *testing.T) {
 	conv := domain.Conversation{
 		ConversationID: "c1",
-		Turns: []domain.Turn{
-			{Query: "What is Python?", Answer: "A high-level programming language."},
-		},
+		Turns:          []domain.Turn{{Query: "What is Python?", Answer: "A high-level programming language."}},
 	}
 
-	prompt := buildPrompt(conv)
+	prompt := render(t, conv)
 
 	assert.Contains(t, prompt, "human annotator")
 	assert.Contains(t, prompt, "2-3 sentences")
 	assert.Contains(t, prompt, "no preamble")
 }
 
-func TestBuildPrompt_ContainsTurnContent(t *testing.T) {
+func TestPrompt_ContainsTurnContent(t *testing.T) {
 	conv := domain.Conversation{
-		ConversationID: "c1",
 		Turns: []domain.Turn{
 			{Query: "What is Python?", Answer: "A high-level programming language."},
 			{Query: "Is it hard?", Answer: "Not at all."},
 		},
 	}
 
-	prompt := buildPrompt(conv)
+	prompt := render(t, conv)
 
 	assert.Contains(t, prompt, "What is Python?")
 	assert.Contains(t, prompt, "A high-level programming language.")
@@ -40,7 +49,7 @@ func TestBuildPrompt_ContainsTurnContent(t *testing.T) {
 	assert.Contains(t, prompt, "Not at all.")
 }
 
-func TestBuildPrompt_TurnNumbering(t *testing.T) {
+func TestPrompt_TurnNumbering(t *testing.T) {
 	conv := domain.Conversation{
 		Turns: []domain.Turn{
 			{Query: "Q1", Answer: "A1"},
@@ -49,21 +58,37 @@ func TestBuildPrompt_TurnNumbering(t *testing.T) {
 		},
 	}
 
-	prompt := buildPrompt(conv)
+	prompt := render(t, conv)
 
 	assert.Contains(t, prompt, "Turn 1")
 	assert.Contains(t, prompt, "Turn 2")
 	assert.Contains(t, prompt, "Turn 3")
 }
 
-func TestBuildPrompt_EmptyTurns(t *testing.T) {
-	conv := domain.Conversation{
-		ConversationID: "empty",
-		Turns:          []domain.Turn{},
-	}
+func TestPrompt_EmptyTurns(t *testing.T) {
+	conv := domain.Conversation{ConversationID: "empty", Turns: []domain.Turn{}}
 
-	prompt := buildPrompt(conv)
+	prompt := render(t, conv)
 
 	assert.NotEmpty(t, prompt)
 	assert.False(t, strings.Contains(prompt, "Turn 1"))
+}
+
+func TestLoadTemplate_CustomFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "custom.tmpl")
+	err := os.WriteFile(path, []byte("Custom: {{range .Turns}}{{.Query}}{{end}}"), 0o644)
+	require.NoError(t, err)
+
+	tmpl, err := loadTemplate(path)
+	require.NoError(t, err)
+
+	conv := domain.Conversation{Turns: []domain.Turn{{Query: "hello", Answer: "world"}}}
+	result, err := renderPrompt(tmpl, conv)
+	require.NoError(t, err)
+	assert.Equal(t, "Custom: hello", result)
+}
+
+func TestLoadTemplate_MissingFile(t *testing.T) {
+	_, err := loadTemplate("/nonexistent/path/prompt.tmpl")
+	assert.Error(t, err)
 }
