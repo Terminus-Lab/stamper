@@ -165,12 +165,12 @@ func runPlain(ctx context.Context, remaining []domain.Conversation, exec *execut
 				if !summarizeEnabled {
 					continue
 				}
-				fmt.Fprint(os.Stdout, "\n  Summarizing...")
+				_, _ = fmt.Fprint(os.Stdout, "\n  Summarizing...")
 				summary, err := exec.Run(ctx, conv)
 				if err != nil {
-					fmt.Fprintf(os.Stdout, "\n  Error: %v\n", err)
+					_, _ = fmt.Fprintf(os.Stdout, "\n  Error: %v\n", err)
 				} else {
-					fmt.Fprintf(os.Stdout, "\r─────────────────────────────────────────\n  Summary: %s\n─────────────────────────────────────────\n", summary)
+					_, _ = fmt.Fprintf(os.Stdout, "\r─────────────────────────────────────────\n  Summary: %s\n─────────────────────────────────────────\n", summary)
 				}
 				continue
 			case annotator.OutcomeSkip:

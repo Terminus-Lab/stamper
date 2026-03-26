@@ -30,7 +30,11 @@ func (r *Resume) Load(path string) (map[string]bool, error) {
 		return nil, err
 	}
 
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			r.Logger.Error().Err(cerr).Msg("unable to close resume file")
+		}
+	}()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
