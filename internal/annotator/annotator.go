@@ -15,6 +15,7 @@ const (
 	OutcomeReview Outcome = "review"
 	OutcomeSkip   Outcome = "skip"
 	OutcomeFail   Outcome = "fail"
+	OutcomeQuit   Outcome = "quit"
 )
 
 func ReadKey() (Outcome, error) {
@@ -50,6 +51,8 @@ func ReadKeyFrom(r io.Reader) (Outcome, error) {
 			return OutcomeFail, nil
 		case 'x':
 			return OutcomeSkip, nil
+		case 0x03: // Ctrl+C in raw mode
+			return OutcomeQuit, nil
 		default:
 			// wait for a valid key
 		}

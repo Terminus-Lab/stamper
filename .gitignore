@@ -32,3 +32,4 @@ Editor/IDE
 .vscode/
 
 .claude/
+.bin/

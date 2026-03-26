@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/Terminus-Lab/stamper/internal/annotator"
 	"github.com/Terminus-Lab/stamper/internal/display"
@@ -25,6 +27,9 @@ func main() {
 		Use:   "stamper",
 		Short: "Human annotation tool CLI for AI conversation datasets",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if inputFile == "" {
+				return cmd.Help()
+			}
 			// Create the output file is not passed by the user
 			if outputFile == "" {
 				outputFile = strings.TrimSuffix(inputFile, ".jsonl") + "_annotated.jsonl"
@@ -42,7 +47,6 @@ func main() {
 	// binds string flag to a variable
 	root.Flags().StringVarP(&inputFile, "input", "i", "", "JSONL file to annotate (required)")
 	root.Flags().StringVarP(&outputFile, "output", "o", "", "Output file (default: {input}_annotated.jsonl)")
-	root.MarkFlagRequired("input")
 
 	if err := root.Execute(); err != nil {
 		log.Fatal().Msg("failed to run stamper")
@@ -88,6 +92,15 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 		}
 	}()
 
+	// Handle Ctrl+C outside raw mode (e.g. while display is rendering).
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sig
+		logger.Info().Msg("interrupted — progress saved")
+		os.Exit(0)
+	}()
+
 	total := len(remaining)
 	for i, conv := range remaining {
 		display.Reader(os.Stdout, conv, i+1, total)
@@ -96,6 +109,10 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 			return err
 		}
 
+		if outcome == annotator.OutcomeQuit {
+			logger.Info().Msg("interrupted — progress saved")
+			return nil
+		}
 		if outcome == annotator.OutcomeSkip {
 			continue
 		}
