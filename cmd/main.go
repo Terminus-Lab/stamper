@@ -12,7 +12,9 @@ import (
 	"github.com/Terminus-Lab/stamper/internal/logger"
 	"github.com/Terminus-Lab/stamper/internal/reader"
 	"github.com/Terminus-Lab/stamper/internal/resume"
+	"github.com/Terminus-Lab/stamper/internal/tui"
 	"github.com/Terminus-Lab/stamper/internal/writer"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +32,6 @@ func main() {
 			if inputFile == "" {
 				return cmd.Help()
 			}
-			// Create the output file is not passed by the user
 			if outputFile == "" {
 				outputFile = strings.TrimSuffix(inputFile, ".jsonl") + "_annotated.jsonl"
 			}
@@ -44,7 +45,6 @@ func main() {
 		},
 	}
 
-	// binds string flag to a variable
 	root.Flags().StringVarP(&inputFile, "input", "i", "", "JSONL file to annotate (required)")
 	root.Flags().StringVarP(&outputFile, "output", "o", "", "Output file (default: {input}_annotated.jsonl)")
 
@@ -52,6 +52,15 @@ func main() {
 		log.Fatal().Msg("failed to run stamper")
 		os.Exit(1)
 	}
+}
+
+// tuiEnabled returns false only when STAMPER_TUI is explicitly set to 0, false, or off.
+func tuiEnabled() bool {
+	switch strings.ToLower(os.Getenv("STAMPER_TUI")) {
+	case "0", "false", "off":
+		return false
+	}
+	return true
 }
 
 func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err error) {
@@ -92,7 +101,26 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 		}
 	}()
 
-	// Handle Ctrl+C outside raw mode (e.g. while display is rendering).
+	if tuiEnabled() {
+		return runTUI(remaining, w)
+	}
+	return runPlain(remaining, w, logger)
+}
+
+func runTUI(remaining []domain.Conversation, w *writer.Writer) error {
+	m := tui.New(remaining, w)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
+		return err
+	}
+	if tm, ok := finalModel.(tui.Model); ok {
+		return tm.Err()
+	}
+	return nil
+}
+
+func runPlain(remaining []domain.Conversation, w *writer.Writer, logger *zerolog.Logger) error {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -108,7 +136,6 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 		if err != nil {
 			return err
 		}
-
 		if outcome == annotator.OutcomeQuit {
 			logger.Info().Msg("interrupted — progress saved")
 			return nil
@@ -120,6 +147,5 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 			return err
 		}
 	}
-
 	return nil
 }
