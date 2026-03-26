@@ -22,6 +22,6 @@ func Reader(w io.Writer, conv domain.Conversation, index, total int) {
 		fmt.Fprintf(&s, "\t Answer: %s\n", turn.Answer)
 	}
 	s.WriteString(separator)
-	s.WriteString("[p] pass   [r] review   [f] fail   [x] skip\n")
+	s.WriteString("[p] pass   [r] review   [f] fail   [s]summarize   [x] skip\n")
 	w.Write([]byte(s.String()))
 }

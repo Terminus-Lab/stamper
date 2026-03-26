@@ -11,11 +11,12 @@ import (
 type Outcome string
 
 const (
-	OutcomePass   Outcome = "pass"
-	OutcomeReview Outcome = "review"
-	OutcomeSkip   Outcome = "skip"
-	OutcomeFail   Outcome = "fail"
-	OutcomeQuit   Outcome = "quit"
+	OutcomePass      Outcome = "pass"
+	OutcomeReview    Outcome = "review"
+	OutcomeSkip      Outcome = "skip"
+	OutcomeFail      Outcome = "fail"
+	OutcomeSummarize Outcome = "summarize"
+	OutcomeQuit      Outcome = "quit"
 )
 
 func ReadKey() (Outcome, error) {

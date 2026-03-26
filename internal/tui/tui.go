@@ -76,7 +76,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "p", "r", "f", "x":
+		case "p", "r", "f", "s", "x":
 			return m.annotate(msg.String())
 		}
 	}
@@ -89,6 +89,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) annotate(key string) (tea.Model, tea.Cmd) {
 	outcome := outcomeFor(key)
 	if outcome != "skip" {
+		if err := m.writer.Append(m.conversations[m.index], outcome); err != nil {
+			m.err = err
+			return m, tea.Quit
+		}
+	}
+	if outcome == "summarize" {
+		//update llm call
 		if err := m.writer.Append(m.conversations[m.index], outcome); err != nil {
 			m.err = err
 			return m, tea.Quit
@@ -120,7 +127,7 @@ func (m Model) View() string {
 	if m.viewport.TotalLineCount() > m.viewport.Height {
 		scrollHint = fmt.Sprintf("  %3.f%% ↕", m.viewport.ScrollPercent()*100)
 	}
-	footer := fmt.Sprintf("[p] pass   [r] review   [f] fail   [x] skip   [↑↓] scroll%s", scrollHint)
+	footer := fmt.Sprintf("[p] pass   [r] review   [f] fail   [s]summarize   [x] skip   [↑↓] scroll%s", scrollHint)
 
 	return fmt.Sprintf("%s\n\n%s\n%s\n%s\n%s\n%s\n%s",
 		m.progress.View(),
@@ -151,6 +158,8 @@ func outcomeFor(key string) string {
 		return "review"
 	case "f":
 		return "fail"
+	case "s":
+		return "summarize"
 	case "x":
 		return "skip"
 	}

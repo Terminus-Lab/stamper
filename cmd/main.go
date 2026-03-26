@@ -1,18 +1,22 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
 	"github.com/Terminus-Lab/stamper/internal/annotator"
+	"github.com/Terminus-Lab/stamper/internal/config"
 	"github.com/Terminus-Lab/stamper/internal/display"
 	"github.com/Terminus-Lab/stamper/internal/domain"
+	"github.com/Terminus-Lab/stamper/internal/executor"
 	"github.com/Terminus-Lab/stamper/internal/logger"
 	"github.com/Terminus-Lab/stamper/internal/reader"
 	"github.com/Terminus-Lab/stamper/internal/resume"
 	"github.com/Terminus-Lab/stamper/internal/tui"
+	"github.com/Terminus-Lab/stamper/internal/wire"
 	"github.com/Terminus-Lab/stamper/internal/writer"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog"
@@ -64,6 +68,19 @@ func tuiEnabled() bool {
 }
 
 func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err error) {
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	stamperConfig := config.LoadConfig()
+
+	llm, err := wire.GetLLMClient(ctx, stamperConfig)
+	if err != nil {
+		return err
+	}
+
+	exec := executor.New(llm, logger)
+
 	res := resume.NewResume(logger)
 	rd := reader.NewReader(logger)
 
@@ -120,9 +137,9 @@ func runTUI(remaining []domain.Conversation, w *writer.Writer) error {
 	return nil
 }
 
-func runPlain(remaining []domain.Conversation, w *writer.Writer, logger *zerolog.Logger) error {
+func runPlain(executor executor.Executor, remaining []domain.Conversation, w *writer.Writer, logger *zerolog.Logger) error {
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	signal.NotifyContext(contesig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sig
 		logger.Info().Msg("interrupted — progress saved")
@@ -139,6 +156,9 @@ func runPlain(remaining []domain.Conversation, w *writer.Writer, logger *zerolog
 		if outcome == annotator.OutcomeQuit {
 			logger.Info().Msg("interrupted — progress saved")
 			return nil
+		}
+		if outcome == annotator.OutcomeSummarize {
+			executor.Run()
 		}
 		if outcome == annotator.OutcomeSkip {
 			continue
