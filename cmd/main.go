@@ -4,7 +4,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Terminus-Lab/stamper/internal/annotator"
+	"github.com/Terminus-Lab/stamper/internal/display"
+	"github.com/Terminus-Lab/stamper/internal/domain"
 	"github.com/Terminus-Lab/stamper/internal/logger"
+	"github.com/Terminus-Lab/stamper/internal/reader"
+	"github.com/Terminus-Lab/stamper/internal/resume"
+	"github.com/Terminus-Lab/stamper/internal/writer"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -26,19 +33,76 @@ func main() {
 			log.Info().
 				Str("input", inputFile).
 				Str("output", outputFile).
-				Msg("Starting annotation")
+				Msg("starting annotation")
 
-			return nil
+			return runAnnotate(inputFile, outputFile, &log)
 		},
 	}
 
 	// binds string flag to a variable
 	root.Flags().StringVarP(&inputFile, "input", "i", "", "JSONL file to annotate (required)")
 	root.Flags().StringVarP(&outputFile, "output", "o", "", "Output file (default: {input}_annotated.jsonl)")
-	root.MarkFlagRequired("input") //makes Cobra emit an error automatically if -i is missing
+	root.MarkFlagRequired("input")
 
 	if err := root.Execute(); err != nil {
-		log.Fatal().Msg("Failed to run stamper")
+		log.Fatal().Msg("failed to run stamper")
 		os.Exit(1)
 	}
+}
+
+func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err error) {
+	res := resume.NewResume(logger)
+	rd := reader.NewReader(logger)
+
+	seen, err := res.Load(outputFile)
+	if err != nil {
+		return err
+	}
+
+	all, err := rd.Load(inputFile)
+	if err != nil {
+		return err
+	}
+
+	var remaining []domain.Conversation
+	for _, c := range all {
+		if !seen[c.ConversationID] {
+			remaining = append(remaining, c)
+		}
+	}
+
+	if len(remaining) == 0 {
+		logger.Info().Msg("nothing to annotate")
+		return nil
+	}
+
+	w, err := writer.New(outputFile)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if cerr := w.Close(); cerr != nil {
+			logger.Error().Err(cerr).Msg("unable to close the output file")
+			err = cerr
+		}
+	}()
+
+	total := len(remaining)
+	for i, conv := range remaining {
+		display.Reader(os.Stdout, conv, i+1, total)
+		outcome, err := annotator.ReadKey()
+		if err != nil {
+			return err
+		}
+
+		if outcome == annotator.OutcomeSkip {
+			continue
+		}
+		if err := w.Append(conv, string(outcome)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
