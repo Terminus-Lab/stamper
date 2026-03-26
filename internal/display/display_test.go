@@ -23,5 +23,5 @@ func TestReader(t *testing.T) {
 	assert.Contains(t, output, "Turn 1")
 	assert.Contains(t, output, "Query: Hi")
 	assert.Contains(t, output, "Answer: Hello")
-	assert.Contains(t, output, "[p] pass   [r] review   [f] fail   [x] skip")
+	assert.Contains(t, output, "[p] pass   [r] review   [f] fail   [s]summarize   [x] skip")
 }

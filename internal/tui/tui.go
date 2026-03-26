@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Terminus-Lab/stamper/internal/annotator"
 	"github.com/Terminus-Lab/stamper/internal/domain"
 	"github.com/Terminus-Lab/stamper/internal/executor"
 	"github.com/Terminus-Lab/stamper/internal/writer"
@@ -197,13 +198,13 @@ func renderContent(conv domain.Conversation, summary string) string {
 func outcomeFor(key string) string {
 	switch key {
 	case "p":
-		return "pass"
+		return string(annotator.OutcomePass)
 	case "r":
-		return "review"
+		return string(annotator.OutcomeReview)
 	case "f":
-		return "fail"
+		return string(annotator.OutcomeFail)
 	case "x":
-		return "skip"
+		return string(annotator.OutcomeSkip)
 	}
 	return ""
 }
