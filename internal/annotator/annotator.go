@@ -33,7 +33,7 @@ func ReadKey() (Outcome, error) {
 		return "", err
 	}
 
-	defer term.Restore(fd, oldState)
+	defer func() { _ = term.Restore(fd, oldState) }()
 	return ReadKeyFrom(os.Stdin)
 }
 
