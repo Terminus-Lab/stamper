@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/Terminus-Lab/stamper/internal/domain"
+	"github.com/Terminus-Lab/stamper/internal/executor"
 	"github.com/Terminus-Lab/stamper/internal/writer"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -17,6 +19,11 @@ const fixedLines = 7
 
 const separator = "─────────────────────────────────────────"
 
+type summaryMsg struct {
+	text string
+	err  error
+}
+
 type Model struct {
 	conversations []domain.Conversation
 	index         int
@@ -24,16 +31,22 @@ type Model struct {
 	viewport      viewport.Model
 	progress      progress.Model
 	writer        *writer.Writer
+	exec          *executor.Executor
+	ctx           context.Context
 	ready         bool
+	loading       bool
+	summary       string
 	err           error
 }
 
-func New(conversations []domain.Conversation, w *writer.Writer) Model {
+func New(ctx context.Context, conversations []domain.Conversation, exec *executor.Executor, w *writer.Writer) Model {
 	return Model{
 		conversations: conversations,
 		total:         len(conversations),
 		progress:      progress.New(progress.WithDefaultGradient()),
 		writer:        w,
+		exec:          exec,
+		ctx:           ctx,
 	}
 }
 
@@ -56,7 +69,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !m.ready {
 			m.viewport = viewport.New(msg.Width, vpHeight)
-			m.viewport.SetContent(renderContent(m.conversations[m.index]))
+			m.viewport.SetContent(renderContent(m.conversations[m.index], ""))
 			m.ready = true
 		} else {
 			m.viewport.Width = msg.Width
@@ -69,6 +82,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.progress = pm.(progress.Model)
 		return m, cmd
 
+	case summaryMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.summary = fmt.Sprintf("Error: %v", msg.err)
+		} else {
+			m.summary = msg.text
+		}
+		m.viewport.SetContent(renderContent(m.conversations[m.index], m.summary))
+		m.viewport.GotoBottom()
+		return m, nil
+
 	case tea.KeyMsg:
 		if !m.ready {
 			return m, nil
@@ -76,7 +100,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "p", "r", "f", "s", "x":
+		case "s":
+			if m.loading {
+				return m, nil
+			}
+			m.loading = true
+			m.summary = ""
+			conv := m.conversations[m.index]
+			return m, fetchSummary(m.ctx, m.exec, conv)
+		case "p", "r", "f", "x":
 			return m.annotate(msg.String())
 		}
 	}
@@ -84,6 +116,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.viewport, cmd = m.viewport.Update(msg)
 	return m, cmd
+}
+
+func fetchSummary(ctx context.Context, exec *executor.Executor, conv domain.Conversation) tea.Cmd {
+	return func() tea.Msg {
+		text, err := exec.Run(ctx, conv)
+		return summaryMsg{text: text, err: err}
+	}
 }
 
 func (m Model) annotate(key string) (tea.Model, tea.Cmd) {
@@ -94,18 +133,13 @@ func (m Model) annotate(key string) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	}
-	if outcome == "summarize" {
-		//update llm call
-		if err := m.writer.Append(m.conversations[m.index], outcome); err != nil {
-			m.err = err
-			return m, tea.Quit
-		}
-	}
 	m.index++
 	if m.index >= m.total {
 		return m, tea.Quit
 	}
-	m.viewport.SetContent(renderContent(m.conversations[m.index]))
+	m.summary = ""
+	m.loading = false
+	m.viewport.SetContent(renderContent(m.conversations[m.index], ""))
 	m.viewport.GotoTop()
 	cmd := m.progress.SetPercent(float64(m.index) / float64(m.total))
 	return m, cmd
@@ -127,7 +161,12 @@ func (m Model) View() string {
 	if m.viewport.TotalLineCount() > m.viewport.Height {
 		scrollHint = fmt.Sprintf("  %3.f%% ↕", m.viewport.ScrollPercent()*100)
 	}
-	footer := fmt.Sprintf("[p] pass   [r] review   [f] fail   [s]summarize   [x] skip   [↑↓] scroll%s", scrollHint)
+
+	summarizeLabel := "[s] summarize"
+	if m.loading {
+		summarizeLabel = "[s] summarizing..."
+	}
+	footer := fmt.Sprintf("[p] pass   [r] review   [f] fail   %s   [x] skip   [↑↓] scroll%s", summarizeLabel, scrollHint)
 
 	return fmt.Sprintf("%s\n\n%s\n%s\n%s\n%s\n%s\n%s",
 		m.progress.View(),
@@ -140,12 +179,17 @@ func (m Model) View() string {
 	)
 }
 
-func renderContent(conv domain.Conversation) string {
+func renderContent(conv domain.Conversation, summary string) string {
 	var s strings.Builder
 	for i, turn := range conv.Turns {
 		fmt.Fprintf(&s, "Turn %d\n", i+1)
 		fmt.Fprintf(&s, "  User:  %s\n\n", turn.Query)
 		fmt.Fprintf(&s, "  Agent: %s\n\n", turn.Answer)
+	}
+	if summary != "" {
+		s.WriteString(separator + "\n")
+		fmt.Fprintf(&s, "  Summary: %s\n", summary)
+		s.WriteString(separator + "\n")
 	}
 	return s.String()
 }
@@ -158,8 +202,6 @@ func outcomeFor(key string) string {
 		return "review"
 	case "f":
 		return "fail"
-	case "s":
-		return "summarize"
 	case "x":
 		return "skip"
 	}

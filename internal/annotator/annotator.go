@@ -50,6 +50,8 @@ func ReadKeyFrom(r io.Reader) (Outcome, error) {
 			return OutcomeReview, nil
 		case 'f':
 			return OutcomeFail, nil
+		case 's':
+			return OutcomeSummarize, nil
 		case 'x':
 			return OutcomeSkip, nil
 		case 0x03: // Ctrl+C in raw mode

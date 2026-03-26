@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -68,18 +69,17 @@ func tuiEnabled() bool {
 }
 
 func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err error) {
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	stamperConfig := config.LoadConfig()
+	cfg := config.LoadConfig()
 
-	llm, err := wire.GetLLMClient(ctx, stamperConfig)
+	llmClient, err := wire.GetLLMClient(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
-	exec := executor.New(llm, logger)
+	exec := executor.New(llmClient, cfg, logger)
 
 	res := resume.NewResume(logger)
 	rd := reader.NewReader(logger)
@@ -119,13 +119,13 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 	}()
 
 	if tuiEnabled() {
-		return runTUI(remaining, w)
+		return runTUI(ctx, remaining, exec, w)
 	}
-	return runPlain(remaining, w, logger)
+	return runPlain(ctx, remaining, exec, w, logger)
 }
 
-func runTUI(remaining []domain.Conversation, w *writer.Writer) error {
-	m := tui.New(remaining, w)
+func runTUI(ctx context.Context, remaining []domain.Conversation, exec *executor.Executor, w *writer.Writer) error {
+	m := tui.New(ctx, remaining, exec, w)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
@@ -137,9 +137,9 @@ func runTUI(remaining []domain.Conversation, w *writer.Writer) error {
 	return nil
 }
 
-func runPlain(executor executor.Executor, remaining []domain.Conversation, w *writer.Writer, logger *zerolog.Logger) error {
+func runPlain(ctx context.Context, remaining []domain.Conversation, exec *executor.Executor, w *writer.Writer, logger *zerolog.Logger) error {
 	sig := make(chan os.Signal, 1)
-	signal.NotifyContext(contesig, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sig
 		logger.Info().Msg("interrupted — progress saved")
@@ -149,22 +149,32 @@ func runPlain(executor executor.Executor, remaining []domain.Conversation, w *wr
 	total := len(remaining)
 	for i, conv := range remaining {
 		display.Reader(os.Stdout, conv, i+1, total)
-		outcome, err := annotator.ReadKey()
-		if err != nil {
-			return err
-		}
-		if outcome == annotator.OutcomeQuit {
-			logger.Info().Msg("interrupted — progress saved")
-			return nil
-		}
-		if outcome == annotator.OutcomeSummarize {
-			executor.Run()
-		}
-		if outcome == annotator.OutcomeSkip {
-			continue
-		}
-		if err := w.Append(conv, string(outcome)); err != nil {
-			return err
+		for {
+			outcome, err := annotator.ReadKey()
+			if err != nil {
+				return err
+			}
+			switch outcome {
+			case annotator.OutcomeQuit:
+				logger.Info().Msg("interrupted — progress saved")
+				return nil
+			case annotator.OutcomeSummarize:
+				fmt.Fprint(os.Stdout, "\n  Summarizing...")
+				summary, err := exec.Run(ctx, conv)
+				if err != nil {
+					fmt.Fprintf(os.Stdout, "\n  Error: %v\n", err)
+				} else {
+					fmt.Fprintf(os.Stdout, "\r─────────────────────────────────────────\n  Summary: %s\n─────────────────────────────────────────\n", summary)
+				}
+				continue
+			case annotator.OutcomeSkip:
+				// no output, move to next conversation
+			default:
+				if err := w.Append(conv, string(outcome)); err != nil {
+					return err
+				}
+			}
+			break
 		}
 	}
 	return nil
