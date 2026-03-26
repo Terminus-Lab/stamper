@@ -25,16 +25,3 @@ jobs:
 
       - name: Run tests
         run: go test -v -race ./...
-
-      - name: Coverage
-        run: go test -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v '/cmd$\|/tui$\|/wire$')
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
