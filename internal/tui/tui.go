@@ -26,28 +26,30 @@ type summaryMsg struct {
 }
 
 type Model struct {
-	conversations []domain.Conversation
-	index         int
-	total         int
-	viewport      viewport.Model
-	progress      progress.Model
-	writer        *writer.Writer
-	exec          *executor.Executor
-	ctx           context.Context
-	ready         bool
-	loading       bool
-	summary       string
-	err           error
+	conversations    []domain.Conversation
+	index            int
+	total            int
+	viewport         viewport.Model
+	progress         progress.Model
+	writer           *writer.Writer
+	exec             *executor.Executor
+	ctx              context.Context
+	summarizeEnabled bool
+	ready            bool
+	loading          bool
+	summary          string
+	err              error
 }
 
-func New(ctx context.Context, conversations []domain.Conversation, exec *executor.Executor, w *writer.Writer) Model {
+func New(ctx context.Context, conversations []domain.Conversation, exec *executor.Executor, w *writer.Writer, summarizeEnabled bool) Model {
 	return Model{
-		conversations: conversations,
-		total:         len(conversations),
-		progress:      progress.New(progress.WithDefaultGradient()),
-		writer:        w,
-		exec:          exec,
-		ctx:           ctx,
+		conversations:    conversations,
+		total:            len(conversations),
+		progress:         progress.New(progress.WithDefaultGradient()),
+		writer:           w,
+		exec:             exec,
+		ctx:              ctx,
+		summarizeEnabled: summarizeEnabled,
 	}
 }
 
@@ -102,7 +104,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "s":
-			if m.loading {
+			if !m.summarizeEnabled || m.loading {
 				return m, nil
 			}
 			m.loading = true
@@ -163,11 +165,15 @@ func (m Model) View() string {
 		scrollHint = fmt.Sprintf("  %3.f%% ↕", m.viewport.ScrollPercent()*100)
 	}
 
-	summarizeLabel := "[s] summarize"
-	if m.loading {
-		summarizeLabel = "[s] summarizing..."
+	footer := "[p] pass   [r] review   [f] fail"
+	if m.summarizeEnabled {
+		summarizeLabel := "[s] summarize"
+		if m.loading {
+			summarizeLabel = "[s] summarizing..."
+		}
+		footer += "   " + summarizeLabel
 	}
-	footer := fmt.Sprintf("[p] pass   [r] review   [f] fail   %s   [x] skip   [↑↓] scroll%s", summarizeLabel, scrollHint)
+	footer += fmt.Sprintf("   [x] skip   [↑↓] scroll%s", scrollHint)
 
 	return fmt.Sprintf("%s\n\n%s\n%s\n%s\n%s\n%s\n%s",
 		m.progress.View(),

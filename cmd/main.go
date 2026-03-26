@@ -31,8 +31,9 @@ func main() {
 	var outputFile string
 
 	root := &cobra.Command{
-		Use:   "stamper",
-		Short: "Human annotation tool CLI for AI conversation datasets",
+		Use:          "stamper",
+		Short:        "Human annotation tool CLI for AI conversation datasets",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if inputFile == "" {
 				return cmd.Help()
@@ -74,12 +75,14 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 
 	cfg := config.LoadConfig()
 
-	llmClient, err := wire.GetLLMClient(ctx, cfg)
-	if err != nil {
-		return err
+	var exec *executor.Executor
+	if cfg.SummarizeEnabled {
+		llmClient, err := wire.GetLLMClient(ctx, cfg)
+		if err != nil {
+			return err
+		}
+		exec = executor.New(llmClient, cfg, logger)
 	}
-
-	exec := executor.New(llmClient, cfg, logger)
 
 	res := resume.NewResume(logger)
 	rd := reader.NewReader(logger)
@@ -119,13 +122,13 @@ func runAnnotate(inputFile, outputFile string, logger *zerolog.Logger) (err erro
 	}()
 
 	if tuiEnabled() {
-		return runTUI(ctx, remaining, exec, w)
+		return runTUI(ctx, remaining, exec, w, cfg.SummarizeEnabled)
 	}
-	return runPlain(ctx, remaining, exec, w, logger)
+	return runPlain(ctx, remaining, exec, w, cfg.SummarizeEnabled, logger)
 }
 
-func runTUI(ctx context.Context, remaining []domain.Conversation, exec *executor.Executor, w *writer.Writer) error {
-	m := tui.New(ctx, remaining, exec, w)
+func runTUI(ctx context.Context, remaining []domain.Conversation, exec *executor.Executor, w *writer.Writer, summarizeEnabled bool) error {
+	m := tui.New(ctx, remaining, exec, w, summarizeEnabled)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
@@ -137,7 +140,7 @@ func runTUI(ctx context.Context, remaining []domain.Conversation, exec *executor
 	return nil
 }
 
-func runPlain(ctx context.Context, remaining []domain.Conversation, exec *executor.Executor, w *writer.Writer, logger *zerolog.Logger) error {
+func runPlain(ctx context.Context, remaining []domain.Conversation, exec *executor.Executor, w *writer.Writer, summarizeEnabled bool, logger *zerolog.Logger) error {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -159,6 +162,9 @@ func runPlain(ctx context.Context, remaining []domain.Conversation, exec *execut
 				logger.Info().Msg("interrupted — progress saved")
 				return nil
 			case annotator.OutcomeSummarize:
+				if !summarizeEnabled {
+					continue
+				}
 				fmt.Fprint(os.Stdout, "\n  Summarizing...")
 				summary, err := exec.Run(ctx, conv)
 				if err != nil {
