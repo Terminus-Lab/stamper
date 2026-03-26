@@ -4,7 +4,7 @@ Human annotation tool for AI conversation datasets. Label conversations as **pas
 
 Reads and writes JSONL, making it compatible with any evaluation pipeline, pandas, or database.
 
-<!-- VIDEO -->
+<video src="docs/recording.mov" controls width="100%"></video>
 
 ---
 
