@@ -11,9 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// repoPromptPath resolves conf/summarize_prompt.tmpl from the executor package test cwd.
+func repoPromptPath(t *testing.T) string {
+	t.Helper()
+	return filepath.Join("..", "..", "conf", "summarize_prompt.tmpl")
+}
+
 func render(t *testing.T, conv domain.Conversation) string {
 	t.Helper()
-	tmpl, err := loadTemplate("")
+	tmpl, err := loadTemplate(repoPromptPath(t))
 	require.NoError(t, err)
 	result, err := renderPrompt(tmpl, conv)
 	require.NoError(t, err)
@@ -90,5 +96,10 @@ func TestLoadTemplate_CustomFile(t *testing.T) {
 
 func TestLoadTemplate_MissingFile(t *testing.T) {
 	_, err := loadTemplate("/nonexistent/path/prompt.tmpl")
+	assert.Error(t, err)
+}
+
+func TestLoadTemplate_EmptyPath(t *testing.T) {
+	_, err := loadTemplate("")
 	assert.Error(t, err)
 }

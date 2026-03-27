@@ -3,7 +3,6 @@ package executor
 import (
 	"bytes"
 	"context"
-	"embed"
 	"fmt"
 	"os"
 	"text/template"
@@ -13,9 +12,6 @@ import (
 	"github.com/Terminus-Lab/stamper/internal/llm"
 	"github.com/rs/zerolog"
 )
-
-//go:embed default_prompt.tmpl
-var defaultPromptFS embed.FS
 
 type Executor struct {
 	llmClient llm.LLMClient
@@ -57,21 +53,16 @@ func (e *Executor) Run(ctx context.Context, conv domain.Conversation) (string, e
 }
 
 func loadTemplate(path string) (*template.Template, error) {
+	if path == "" {
+		return nil, fmt.Errorf("prompt file path is empty")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read prompt file %q: %w", path, err)
+	}
+
 	funcMap := template.FuncMap{
 		"inc": func(i int) int { return i + 1 },
-	}
-
-	if path != "" {
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("read prompt file %q: %w", path, err)
-		}
-		return template.New("prompt").Funcs(funcMap).Parse(string(raw))
-	}
-
-	raw, err := defaultPromptFS.ReadFile("default_prompt.tmpl")
-	if err != nil {
-		return nil, fmt.Errorf("read embedded prompt: %w", err)
 	}
 	return template.New("prompt").Funcs(funcMap).Parse(string(raw))
 }
