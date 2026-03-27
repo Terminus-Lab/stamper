@@ -54,7 +54,7 @@ go run ./cmd/ -i sampled.jsonl
 |---|---|---|
 | `-i / --input` | required | JSONL file of conversations to annotate |
 | `-o / --output` | `{input}_annotated.jsonl` | Annotation output file |
-| `-p / --prompt` | built-in default | Path to a custom prompt template for `[s] summarize` |
+| `-p / --prompt` | `conf/summarize_prompt.tmpl` | Summarize prompt template (when `STAMPER_SUMMARIZE=true`) |
 
 ---
 
@@ -102,10 +102,10 @@ cp .env.example .env
 
 ### Prompt template
 
-The summarize prompt is built into the binary. To customize it, edit `conf/summarize_prompt.tmpl` (included in every release archive) and pass it at runtime:
+Summarize reads `conf/summarize_prompt.tmpl` from disk (path relative to the working directory). Ship this file with the binary in release archives; if the file is missing, stamper fails when summarize is enabled. Override with `-p`:
 
 ```bash
-stamper -i sampled.jsonl -p conf/summarize_prompt.tmpl
+stamper -i sampled.jsonl -p /path/to/custom_prompt.tmpl
 ```
 
 The template has access to `.Turns` (array of `Query` / `Answer`) and the `inc` helper to produce 1-based turn numbers.

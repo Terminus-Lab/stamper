@@ -13,18 +13,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const defaultPrompt = `You are helping a human annotator evaluate an AI conversation.
-Summarize this conversation in 2-3 sentences.
-Focus on: what the user asked, whether the agent's responses were accurate and helpful, and any notable issues.
-
-{{range $i, $t := .Turns -}}
-Turn {{inc $i}}
-User: {{$t.Query}}
-Agent: {{$t.Answer}}
-
-{{end -}}
-Provide only the summary, no preamble.
-`
+const DefaultPromptFile = "conf/summarize_prompt.tmpl"
 
 type Executor struct {
 	llmClient llm.LLMClient
@@ -66,20 +55,18 @@ func (e *Executor) Run(ctx context.Context, conv domain.Conversation) (string, e
 }
 
 func loadTemplate(path string) (*template.Template, error) {
+	if path == "" {
+		return nil, fmt.Errorf("prompt file path is empty")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read prompt file %q: %w", path, err)
+	}
+
 	funcMap := template.FuncMap{
 		"inc": func(i int) int { return i + 1 },
 	}
-
-	src := defaultPrompt
-	if path != "" {
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("read prompt file %q: %w", path, err)
-		}
-		src = string(raw)
-	}
-
-	return template.New("prompt").Funcs(funcMap).Parse(src)
+	return template.New("prompt").Funcs(funcMap).Parse(string(raw))
 }
 
 func renderPrompt(tmpl *template.Template, conv domain.Conversation) (string, error) {
