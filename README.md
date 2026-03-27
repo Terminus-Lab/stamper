@@ -54,7 +54,7 @@ go run ./cmd/ -i sampled.jsonl
 |---|---|---|
 | `-i / --input` | required | JSONL file of conversations to annotate |
 | `-o / --output` | `{input}_annotated.jsonl` | Annotation output file |
-| `-p / --prompt` | built-in `conf/summarize_prompt.tmpl` | Custom prompt template for `[s] summarize` |
+| `-p / --prompt` | built-in default | Path to a custom prompt template for `[s] summarize` |
 
 ---
 
@@ -99,6 +99,16 @@ cp .env.example .env
 | `MODEL_TEMPERATURE` | `0.0` | Sampling temperature |
 | `STAMPER_SUMMARIZE` | `false` | Enable `[s] summarize` — no LLM client is created when false |
 | `STAMPER_TUI` | `true` | Set to `false` for plain terminal mode (no bubbletea) |
+
+### Prompt template
+
+The summarize prompt is built into the binary. To customize it, edit `conf/summarize_prompt.tmpl` (included in every release archive) and pass it at runtime:
+
+```bash
+stamper -i sampled.jsonl -p conf/summarize_prompt.tmpl
+```
+
+The template has access to `.Turns` (array of `Query` / `Answer`) and the `inc` helper to produce 1-based turn numbers.
 
 ---
 

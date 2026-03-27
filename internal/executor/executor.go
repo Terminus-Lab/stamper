@@ -3,7 +3,6 @@ package executor
 import (
 	"bytes"
 	"context"
-	"embed"
 	"fmt"
 	"os"
 	"text/template"
@@ -14,8 +13,18 @@ import (
 	"github.com/rs/zerolog"
 )
 
-//go:embed default_prompt.tmpl
-var defaultPromptFS embed.FS
+const defaultPrompt = `You are helping a human annotator evaluate an AI conversation.
+Summarize this conversation in 2-3 sentences.
+Focus on: what the user asked, whether the agent's responses were accurate and helpful, and any notable issues.
+
+{{range $i, $t := .Turns -}}
+Turn {{inc $i}}
+User: {{$t.Query}}
+Agent: {{$t.Answer}}
+
+{{end -}}
+Provide only the summary, no preamble.
+`
 
 type Executor struct {
 	llmClient llm.LLMClient
@@ -61,19 +70,16 @@ func loadTemplate(path string) (*template.Template, error) {
 		"inc": func(i int) int { return i + 1 },
 	}
 
+	src := defaultPrompt
 	if path != "" {
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read prompt file %q: %w", path, err)
 		}
-		return template.New("prompt").Funcs(funcMap).Parse(string(raw))
+		src = string(raw)
 	}
 
-	raw, err := defaultPromptFS.ReadFile("default_prompt.tmpl")
-	if err != nil {
-		return nil, fmt.Errorf("read embedded prompt: %w", err)
-	}
-	return template.New("prompt").Funcs(funcMap).Parse(string(raw))
+	return template.New("prompt").Funcs(funcMap).Parse(src)
 }
 
 func renderPrompt(tmpl *template.Template, conv domain.Conversation) (string, error) {
