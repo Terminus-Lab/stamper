@@ -21,11 +21,11 @@ func TestAppend(t *testing.T) {
 	conv := domain.Conversation{
 		ConversationID: "conv-1",
 		Turns: []domain.Turn{
-			{Query: "hello", Answer: "world"},
+			{UserQuery: "hello", Answer: "world"},
 		},
 	}
 
-	if err := w.Append(conv, "pass"); err != nil {
+	if err := w.Append(conv, "pass", ""); err != nil {
 		t.Fatalf("Append: %v", err)
 	}
 	if err := w.Close(); err != nil {
@@ -48,7 +48,7 @@ func TestAppend(t *testing.T) {
 	if got.Annotation != "pass" {
 		t.Errorf("human_annotation: got %q, want %q", got.Annotation, "pass")
 	}
-	if len(got.Turns) != 1 || got.Turns[0].Query != "hello" {
+	if len(got.Turns) != 1 || got.Turns[0].UserQuery != "hello" {
 		t.Errorf("turns: unexpected value %+v", got.Turns)
 	}
 }
@@ -69,7 +69,7 @@ func TestAppendPreservesExtraFields(t *testing.T) {
 		t.Fatalf("unmarshal input: %v", err)
 	}
 
-	if err := w.Append(conv, "fail"); err != nil {
+	if err := w.Append(conv, "fail", ""); err != nil {
 		t.Fatalf("Append: %v", err)
 	}
 	w.Close()
@@ -108,13 +108,13 @@ func TestAppendMultiple(t *testing.T) {
 	}
 
 	convs := []domain.Conversation{
-		{ConversationID: "a", Turns: []domain.Turn{{Query: "q1", Answer: "a1"}}},
-		{ConversationID: "b", Turns: []domain.Turn{{Query: "q2", Answer: "a2"}}},
+		{ConversationID: "a", Turns: []domain.Turn{{UserQuery: "q1", Answer: "a1"}}},
+		{ConversationID: "b", Turns: []domain.Turn{{UserQuery: "q2", Answer: "a2"}}},
 	}
 	annotations := []string{"pass", "review"}
 
 	for i, c := range convs {
-		if err := w.Append(c, annotations[i]); err != nil {
+		if err := w.Append(c, annotations[i], ""); err != nil {
 			t.Fatalf("Append %d: %v", i, err)
 		}
 	}

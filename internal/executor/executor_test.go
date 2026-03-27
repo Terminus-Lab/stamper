@@ -29,7 +29,7 @@ func render(t *testing.T, conv domain.Conversation) string {
 func TestPrompt_ContainsInstructions(t *testing.T) {
 	conv := domain.Conversation{
 		ConversationID: "c1",
-		Turns:          []domain.Turn{{Query: "What is Python?", Answer: "A high-level programming language."}},
+		Turns:          []domain.Turn{{UserQuery: "What is Python?", Answer: "A high-level programming language."}},
 	}
 
 	prompt := render(t, conv)
@@ -42,8 +42,8 @@ func TestPrompt_ContainsInstructions(t *testing.T) {
 func TestPrompt_ContainsTurnContent(t *testing.T) {
 	conv := domain.Conversation{
 		Turns: []domain.Turn{
-			{Query: "What is Python?", Answer: "A high-level programming language."},
-			{Query: "Is it hard?", Answer: "Not at all."},
+			{UserQuery: "What is Python?", Answer: "A high-level programming language."},
+			{UserQuery: "Is it hard?", Answer: "Not at all."},
 		},
 	}
 
@@ -58,9 +58,9 @@ func TestPrompt_ContainsTurnContent(t *testing.T) {
 func TestPrompt_TurnNumbering(t *testing.T) {
 	conv := domain.Conversation{
 		Turns: []domain.Turn{
-			{Query: "Q1", Answer: "A1"},
-			{Query: "Q2", Answer: "A2"},
-			{Query: "Q3", Answer: "A3"},
+			{UserQuery: "Q1", Answer: "A1"},
+			{UserQuery: "Q2", Answer: "A2"},
+			{UserQuery: "Q3", Answer: "A3"},
 		},
 	}
 
@@ -82,13 +82,13 @@ func TestPrompt_EmptyTurns(t *testing.T) {
 
 func TestLoadTemplate_CustomFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "custom.tmpl")
-	err := os.WriteFile(path, []byte("Custom: {{range .Turns}}{{.Query}}{{end}}"), 0o644)
+	err := os.WriteFile(path, []byte("Custom: {{range .Turns}}{{.UserQuery}}{{end}}"), 0o644)
 	require.NoError(t, err)
 
 	tmpl, err := loadTemplate(path)
 	require.NoError(t, err)
 
-	conv := domain.Conversation{Turns: []domain.Turn{{Query: "hello", Answer: "world"}}}
+	conv := domain.Conversation{Turns: []domain.Turn{{UserQuery: "hello", Answer: "world"}}}
 	result, err := renderPrompt(tmpl, conv)
 	require.NoError(t, err)
 	assert.Equal(t, "Custom: hello", result)

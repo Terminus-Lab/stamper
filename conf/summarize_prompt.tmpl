@@ -4,7 +4,7 @@ Focus on: what the user asked, whether the agent's responses were accurate and h
 
 {{range $i, $t := .Turns -}}
 Turn {{inc $i}}
-User: {{$t.Query}}
+User: {{$t.UserQuery}}
 Agent: {{$t.Answer}}
 
 {{end -}}

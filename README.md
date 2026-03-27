@@ -117,8 +117,8 @@ The template has access to `.Turns` (array of `Query` / `Answer`) and the `inc` 
 JSONL — one conversation per line:
 
 ```json
-{"conversation_id": "conv-001", "turns": [{"query": "What is Python?", "answer": "A high-level language..."}]}
-{"conversation_id": "conv-002", "turns": [{"query": "Is it hard?", "answer": "Not at all..."}]}
+{"conversation_id": "conv-001", "turns": [{"user_query": "What is Python?", "answer": "A high-level language..."}]}
+{"conversation_id": "conv-002", "turns": [{"user_query": "Is it hard?", "answer": "Not at all..."}]}
 ```
 
 | Field | Required | Description |

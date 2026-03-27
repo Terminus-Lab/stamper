@@ -13,7 +13,7 @@ func TestConversation(t *testing.T) {
 		ConversationID: "c1",
 		Turns: []Turn{
 			{
-				Query:  "Hi",
+				UserQuery: "Hi",
 				Answer: "Hello",
 			},
 		},
@@ -45,7 +45,7 @@ func TestConversationMarshalUnmarshal(t *testing.T) {
 		ConversationID: "c1",
 		Turns: []Turn{
 			{
-				Query:  "Hi",
+				UserQuery: "Hi",
 				Answer: "Hello",
 			},
 		},
@@ -66,7 +66,7 @@ func TestConversationMarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, conv.ConversationID, resultConv.ConversationID)
 	assert.Equal(t, conv.Annotation, resultConv.Annotation)
 	for i := 0; i < len(conv.Turns); i++ {
-		assert.Equal(t, conv.Turns[i].Query, resultConv.Turns[i].Query)
+		assert.Equal(t, conv.Turns[i].UserQuery, resultConv.Turns[i].UserQuery)
 		assert.Equal(t, conv.Turns[i].Answer, resultConv.Turns[i].Answer)
 	}
 }
@@ -75,7 +75,7 @@ func TestConversationMarshalJSON_OmitsEmptyAnnotation(t *testing.T) {
 	conv := Conversation{
 		ConversationID: "c1",
 		Turns: []Turn{
-			{Query: "Hi", Answer: "Hello"},
+			{UserQuery: "Hi", Answer: "Hello"},
 		},
 		Annotation: "",
 	}

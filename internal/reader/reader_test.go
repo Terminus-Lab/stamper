@@ -16,8 +16,8 @@ func TestReaderLoad(t *testing.T) {
 
 	defer os.Remove(f.Name())
 
-	content := `{"conversation_id":"c1","turns":[{"query":"Hi","answer":"Hello"}]}
-{"conversation_id":"c2","turns":[{"query":"Bye","answer":"Goodbye"}]}`
+	content := `{"conversation_id":"c1","turns":[{"user_query":"Hi","answer":"Hello"}]}
+{"conversation_id":"c2","turns":[{"user_query":"Bye","answer":"Goodbye"}]}`
 	f.WriteString(content)
 	f.Close()
 
@@ -32,7 +32,7 @@ func TestReaderLoad(t *testing.T) {
 	// Assert
 	assert.Len(t, convs, 2)
 	assert.Equal(t, "c1", convs[0].ConversationID)
-	assert.Equal(t, "Hi", convs[0].Turns[0].Query)
+	assert.Equal(t, "Hi", convs[0].Turns[0].UserQuery)
 }
 
 func TestReaderLoad_InvalidJson(t *testing.T) {

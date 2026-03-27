@@ -18,7 +18,7 @@ func Reader(w io.Writer, conv domain.Conversation, index, total int) {
 	s.WriteString(separator)
 	for i, turn := range conv.Turns {
 		fmt.Fprintf(&s, "Turn %d\n", i+1)
-		fmt.Fprintf(&s, "\t Query: %s\n", turn.Query)
+		fmt.Fprintf(&s, "\t User: %s\n", turn.UserQuery)
 		fmt.Fprintf(&s, "\t Answer: %s\n", turn.Answer)
 	}
 	s.WriteString(separator)
