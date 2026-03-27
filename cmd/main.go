@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -182,7 +183,10 @@ func runPlain(ctx context.Context, remaining []domain.Conversation, exec *execut
 			case annotator.OutcomeSkip:
 				// no output, move to next conversation
 			default:
-				if err := w.Append(conv, string(outcome)); err != nil {
+				_, _ = fmt.Fprint(os.Stdout, "  Reason (optional — press Enter to skip): ")
+				reason, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+				reason = strings.TrimRight(reason, "\r\n")
+				if err := w.Append(conv, string(outcome), reason); err != nil {
 					return err
 				}
 			}

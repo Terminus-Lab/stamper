@@ -3,14 +3,15 @@ package domain
 import "encoding/json"
 
 type Turn struct {
-	Query  string `json:"query"`
-	Answer string `json:"answer"`
+	UserQuery string `json:"user_query"`
+	Answer    string `json:"answer"`
 }
 
 type Conversation struct {
 	ConversationID string                     `json:"conversation_id"`
 	Turns          []Turn                     `json:"turns"`
 	Annotation     string                     `json:"human_annotation,omitempty"`
+	Reason         string                     `json:"human_reason,omitempty"`
 	Extra          map[string]json.RawMessage `json:"-"`
 }
 
@@ -47,8 +48,14 @@ func (c *Conversation) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(v, &c.Annotation); err != nil {
 			return nil
 		}
-
 		delete(c.Extra, "human_annotation")
+	}
+
+	if v, ok := raw["human_reason"]; ok {
+		if err := json.Unmarshal(v, &c.Reason); err != nil {
+			return nil
+		}
+		delete(c.Extra, "human_reason")
 	}
 
 	return nil
@@ -79,6 +86,14 @@ func (c *Conversation) MarshalJSON() ([]byte, error) {
 			return nil, err
 		} else {
 			out["human_annotation"] = b
+		}
+	}
+
+	if c.Reason != "" {
+		if b, err := json.Marshal(c.Reason); err != nil {
+			return nil, err
+		} else {
+			out["human_reason"] = b
 		}
 	}
 

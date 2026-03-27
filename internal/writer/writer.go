@@ -21,8 +21,9 @@ func New(path string) (*Writer, error) {
 	return &Writer{F: f}, nil
 }
 
-func (w *Writer) Append(conv domain.Conversation, annotation string) error {
+func (w *Writer) Append(conv domain.Conversation, annotation, reason string) error {
 	conv.Annotation = annotation
+	conv.Reason = reason
 	line, err := json.Marshal(&conv)
 	if err != nil {
 		return fmt.Errorf("marshal conversation: %w", err)

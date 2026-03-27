@@ -15,8 +15,8 @@ func TestResumeLoad(t *testing.T) {
 	}
 
 	defer os.Remove(f.Name())
-	content := `{"conversation_id":"c1","turns":[{"query":"Hi","answer":"Hello"}]}
-{"conversation_id":"c2","turns":[{"query":"Bye","answer":"Goodbye"}]}`
+	content := `{"conversation_id":"c1","turns":[{"user_query":"Hi","answer":"Hello"}]}
+{"conversation_id":"c2","turns":[{"user_query":"Bye","answer":"Goodbye"}]}`
 
 	f.WriteString(content)
 	f.Close()

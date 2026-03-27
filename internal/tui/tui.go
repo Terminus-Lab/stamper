@@ -10,6 +10,7 @@ import (
 	"github.com/Terminus-Lab/stamper/internal/executor"
 	"github.com/Terminus-Lab/stamper/internal/writer"
 	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -38,10 +39,18 @@ type Model struct {
 	ready            bool
 	loading          bool
 	summary          string
-	err              error
+	// reason input state
+	reasonInput    textinput.Model
+	awaitingReason bool
+	pendingOutcome string
+	err            error
 }
 
 func New(ctx context.Context, conversations []domain.Conversation, exec *executor.Executor, w *writer.Writer, summarizeEnabled bool) Model {
+	ti := textinput.New()
+	ti.Placeholder = "Reason (optional — press Enter to skip)"
+	ti.CharLimit = 300
+
 	return Model{
 		conversations:    conversations,
 		total:            len(conversations),
@@ -50,6 +59,7 @@ func New(ctx context.Context, conversations []domain.Conversation, exec *executo
 		exec:             exec,
 		ctx:              ctx,
 		summarizeEnabled: summarizeEnabled,
+		reasonInput:      ti,
 	}
 }
 
@@ -100,6 +110,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.ready {
 			return m, nil
 		}
+
+		// reason input mode
+		if m.awaitingReason {
+			switch msg.String() {
+			case "enter":
+				return m.commitAnnotation(m.reasonInput.Value())
+			case "esc":
+				return m.commitAnnotation("")
+			case "ctrl+c":
+				return m, tea.Quit
+			}
+			var cmd tea.Cmd
+			m.reasonInput, cmd = m.reasonInput.Update(msg)
+			return m, cmd
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -111,13 +137,56 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.summary = ""
 			conv := m.conversations[m.index]
 			return m, fetchSummary(m.ctx, m.exec, conv)
-		case "p", "r", "f", "x":
-			return m.annotate(msg.String())
+		case "p", "r", "f":
+			return m.startReason(msg.String())
+		case "x":
+			return m.advance("")
 		}
+	}
+
+	if m.awaitingReason {
+		var cmd tea.Cmd
+		m.reasonInput, cmd = m.reasonInput.Update(msg)
+		return m, cmd
 	}
 
 	var cmd tea.Cmd
 	m.viewport, cmd = m.viewport.Update(msg)
+	return m, cmd
+}
+
+// startReason enters reason-input mode after a p/r/f keypress.
+func (m Model) startReason(key string) (tea.Model, tea.Cmd) {
+	m.pendingOutcome = outcomeFor(key)
+	m.awaitingReason = true
+	m.reasonInput.SetValue("")
+	m.reasonInput.Focus()
+	return m, textinput.Blink
+}
+
+// commitAnnotation writes the annotation + reason and advances.
+func (m Model) commitAnnotation(reason string) (tea.Model, tea.Cmd) {
+	m.awaitingReason = false
+	m.reasonInput.Blur()
+	if err := m.writer.Append(m.conversations[m.index], m.pendingOutcome, reason); err != nil {
+		m.err = err
+		return m, tea.Quit
+	}
+	return m.advance(reason)
+}
+
+// advance moves to the next conversation.
+func (m Model) advance(_ string) (tea.Model, tea.Cmd) {
+	m.index++
+	if m.index >= m.total {
+		return m, tea.Quit
+	}
+	m.summary = ""
+	m.loading = false
+	m.pendingOutcome = ""
+	m.viewport.SetContent(renderContent(m.conversations[m.index], ""))
+	m.viewport.GotoTop()
+	cmd := m.progress.SetPercent(float64(m.index) / float64(m.total))
 	return m, cmd
 }
 
@@ -126,26 +195,6 @@ func fetchSummary(ctx context.Context, exec *executor.Executor, conv domain.Conv
 		text, err := exec.Run(ctx, conv)
 		return summaryMsg{text: text, err: err}
 	}
-}
-
-func (m Model) annotate(key string) (tea.Model, tea.Cmd) {
-	outcome := outcomeFor(key)
-	if outcome != "skip" {
-		if err := m.writer.Append(m.conversations[m.index], outcome); err != nil {
-			m.err = err
-			return m, tea.Quit
-		}
-	}
-	m.index++
-	if m.index >= m.total {
-		return m, tea.Quit
-	}
-	m.summary = ""
-	m.loading = false
-	m.viewport.SetContent(renderContent(m.conversations[m.index], ""))
-	m.viewport.GotoTop()
-	cmd := m.progress.SetPercent(float64(m.index) / float64(m.total))
-	return m, cmd
 }
 
 func (m Model) View() string {
@@ -163,6 +212,24 @@ func (m Model) View() string {
 	scrollHint := ""
 	if m.viewport.TotalLineCount() > m.viewport.Height {
 		scrollHint = fmt.Sprintf("  %3.f%% ↕", m.viewport.ScrollPercent()*100)
+	}
+
+	if m.awaitingReason {
+		footer := fmt.Sprintf("[%s] → %s\n%s\n%s",
+			m.pendingOutcome[:1],
+			m.pendingOutcome,
+			m.reasonInput.View(),
+			"Enter to confirm   Esc to skip reason",
+		)
+		return fmt.Sprintf("%s\n\n%s\n%s\n%s\n%s\n%s\n%s",
+			m.progress.View(),
+			separator,
+			header,
+			separator,
+			m.viewport.View(),
+			separator,
+			footer,
+		)
 	}
 
 	footer := "[p] pass   [r] review   [f] fail"
@@ -190,7 +257,7 @@ func renderContent(conv domain.Conversation, summary string) string {
 	var s strings.Builder
 	for i, turn := range conv.Turns {
 		fmt.Fprintf(&s, "Turn %d\n", i+1)
-		fmt.Fprintf(&s, "  User:  %s\n\n", turn.Query)
+		fmt.Fprintf(&s, "  User:  %s\n\n", turn.UserQuery)
 		fmt.Fprintf(&s, "  Agent: %s\n\n", turn.Answer)
 	}
 	if summary != "" {

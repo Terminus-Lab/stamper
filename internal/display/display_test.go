@@ -12,7 +12,7 @@ func TestReader(t *testing.T) {
 	conv := domain.Conversation{
 		ConversationID: "c1",
 		Turns: []domain.Turn{
-			{Query: "Hi", Answer: "Hello"},
+			{UserQuery: "Hi", Answer: "Hello"},
 		},
 	}
 
@@ -21,7 +21,7 @@ func TestReader(t *testing.T) {
 	output := buf.String()
 	assert.Contains(t, output, "Conversation 1 / 1  - 1 turns")
 	assert.Contains(t, output, "Turn 1")
-	assert.Contains(t, output, "Query: Hi")
+	assert.Contains(t, output, "User: Hi")
 	assert.Contains(t, output, "Answer: Hello")
 	assert.Contains(t, output, "[p] pass   [r] review   [f] fail   [s]summarize   [x] skip")
 }
