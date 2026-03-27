@@ -13,8 +13,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const DefaultPromptFile = "conf/summarize_prompt.tmpl"
-
 type Executor struct {
 	llmClient llm.LLMClient
 	cfg       *config.StamperConfig

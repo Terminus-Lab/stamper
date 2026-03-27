@@ -54,7 +54,7 @@ func main() {
 
 	root.Flags().StringVarP(&inputFile, "input", "i", "", "JSONL file to annotate (required)")
 	root.Flags().StringVarP(&outputFile, "output", "o", "", "Output file (default: {input}_annotated.jsonl)")
-	root.Flags().StringVarP(&promptFile, "prompt", "p", "", "Summarize prompt template (default: conf/summarize_prompt.tmpl)")
+	root.Flags().StringVarP(&promptFile, "prompt", "p", "conf/summarize_prompt.tmpl", "Summarize prompt template path (relative to working directory)")
 
 	if err := root.Execute(); err != nil {
 		log.Fatal().Msg("failed to run stamper")
@@ -76,11 +76,7 @@ func runAnnotate(inputFile, outputFile, promptFile string, logger *zerolog.Logge
 	defer cancel()
 
 	cfg := config.LoadConfig()
-	if promptFile != "" {
-		cfg.PromptFile = promptFile
-	} else if cfg.SummarizeEnabled {
-		cfg.PromptFile = executor.DefaultPromptFile
-	}
+	cfg.PromptFile = promptFile
 
 	var exec *executor.Executor
 	if cfg.SummarizeEnabled {
